@@ -81,22 +81,9 @@ nav a.nl:hover{color:var(--fg)}
 .cta{display:flex; gap:12px; margin-top:32px; flex-wrap:wrap}
 .req{margin-top:18px; font-size:13px; color:var(--faint)}
 
-/* macbook illustration */
+/* hero photo */
+.hero-shot{border-radius:18px; overflow:hidden; border:1px solid var(--line)}
 .viz{width:100%;height:auto;display:block}
-.ring,.dot{transform-box:fill-box; transform-origin:center}
-.ring{animation:ring 3.6s ease-out infinite}
-.ring.b{animation-delay:.26s}
-.ring.c{animation-delay:1.8s}
-.ring.d{animation-delay:2.06s}
-@keyframes ring{
-  0%{opacity:0;transform:scale(.35)}
-  8%{opacity:.75}
-  40%{opacity:0;transform:scale(1.9)}
-  100%{opacity:0;transform:scale(1.9)}
-}
-.dot{animation:dot 3.6s ease-out infinite}
-.dot.b{animation-delay:.26s}
-@keyframes dot{0%,6%{opacity:.95}30%,100%{opacity:.28}}
 
 /* stats */
 .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line);
@@ -211,48 +198,9 @@ footer{border-top:1px solid var(--line); padding:44px 0; color:var(--faint); fon
       <p class="req">Apple silicon MacBook · macOS 14 or later · free and open source</p>
     </div>
 
-    <div>
-      <svg class="viz" viewBox="0 0 520 350" role="img" aria-label="Top-down MacBook with tap zones on either side of the trackpad">
-        <defs>
-          <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="var(--card-2)"/><stop offset="1" stop-color="var(--card)"/>
-          </linearGradient>
-
-        </defs>
-
-        <!-- screen -->
-        <rect x="72" y="14" width="376" height="150" rx="10" fill="url(#body)" stroke="var(--line)" stroke-width="1.5"/>
-        <rect x="84" y="26" width="352" height="126" rx="5" fill="var(--bg)" stroke="var(--line)"/>
-        <!-- hinge -->
-        <rect x="60" y="168" width="400" height="7" rx="3.5" fill="var(--line)"/>
-        <!-- base -->
-        <rect x="52" y="178" width="416" height="158" rx="13" fill="url(#body)" stroke="var(--line)" stroke-width="1.5"/>
-        <!-- keyboard -->
-        <g fill="var(--line)">
-          <rect x="76" y="194" width="368" height="9" rx="3"/>
-          <rect x="76" y="208" width="368" height="9" rx="3"/>
-          <rect x="76" y="222" width="368" height="9" rx="3"/>
-          <rect x="76" y="236" width="368" height="9" rx="3"/>
-          <rect x="120" y="250" width="280" height="9" rx="3"/>
-        </g>
-        <!-- trackpad -->
-        <rect x="196" y="270" width="128" height="52" rx="7" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5"/>
-
-        <!-- tap zones -->
-        <g class="tapzone">
-          <circle class="ring"   cx="134" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
-          <circle class="ring b" cx="134" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
-          <circle class="dot"    cx="134" cy="296" r="6.5" fill="var(--accent)"/>
-        </g>
-        <g class="tapzone">
-          <circle class="ring c"   cx="386" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
-          <circle class="ring d"   cx="386" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
-          <circle class="dot b"    cx="386" cy="296" r="6.5" fill="var(--accent)"/>
-        </g>
-
-        <text x="134" y="340" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="var(--faint)">LEFT</text>
-        <text x="386" y="340" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="var(--faint)">RIGHT</text>
-      </svg>
+    <div class="hero-shot">
+      <img class="viz" src="assets/magictapdemo.png" width="1553" height="1013"
+           alt="MacBook on a desk with a finger tapping the case to the left of the trackpad, labeled Tap Left Side / Perform left action, and another tapping to the right, labeled Tap Right Side / Perform right action">
     </div>
   </div>
 
