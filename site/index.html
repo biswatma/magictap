@@ -5,27 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MagicTap — tap your MacBook to trigger anything</title>
 <meta name="description" content="Tap the case beside your trackpad to fire any of 51 actions. MagicTap reads the motion sensor inside Apple silicon MacBooks — no extra hardware.">
-<meta name="theme-color" content="#5a5cf5">
+<meta name="theme-color" content="#0066cc">
 <meta property="og:title" content="MagicTap — tap your MacBook to trigger anything">
 <meta property="og:description" content="Tap the case beside your trackpad to fire any of 51 actions. Reads the IMU inside Apple silicon MacBooks.">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%235a5cf5'/><stop offset='1' stop-color='%23944aed'/></linearGradient></defs><rect width='100' height='100' rx='24' fill='url(%23g)'/><circle cx='50' cy='50' r='13' fill='white'/><circle cx='50' cy='50' r='26' fill='none' stroke='white' stroke-width='5' opacity='.55'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230066cc'/><circle cx='50' cy='50' r='13' fill='white'/><circle cx='50' cy='50' r='26' fill='none' stroke='white' stroke-width='5' opacity='.55'/></svg>">
 
 <style>
 :root{
-  --bg:#ffffff; --fg:#0d0d11; --muted:#6b6b76; --faint:#9a9aa5;
-  --line:#e8e8ee; --card:#fbfbfd; --card-2:#f4f4f8;
-  --accent:#5a5cf5; --accent-2:#944aed;
+  --bg:#ffffff; --fg:#1d1d1f; --muted:#6e6e73; --faint:#86868b;
+  --line:#e5e5e7; --card:#fbfbfd; --card-2:#f5f5f7;
+  --accent:#0066cc; --accent-hover:#0077ed;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif;
   --w:1080px;
-}
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0b0b0f; --fg:#f2f2f5; --muted:#9e9eab; --faint:#6f6f7c;
-    --line:#1e1e26; --card:#111117; --card-2:#15151d;
-    --accent:#7b7dff; --accent-2:#b06cff;
-  }
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -57,7 +50,7 @@ header{
 }
 nav{display:flex; align-items:center; gap:28px; height:60px}
 .brand{display:flex; align-items:center; gap:10px; font-weight:650; letter-spacing:-.02em; text-decoration:none}
-.mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(160deg,var(--accent),var(--accent-2));
+.mark{width:24px;height:24px;border-radius:7px;background:var(--accent);
   display:grid;place-items:center;flex:none}
 .mark span{width:8px;height:8px;border-radius:50%;background:#fff}
 nav .links{display:flex; gap:24px; margin-left:auto; align-items:center}
@@ -67,25 +60,23 @@ nav a.nl:hover{color:var(--fg)}
 
 /* buttons */
 .btn{
-  display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 20px;
-  border-radius:11px; text-decoration:none; font-size:15px; font-weight:560;
-  border:1px solid var(--line); background:var(--card); transition:.16s ease;
+  display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 22px;
+  border-radius:980px; text-decoration:none; font-size:15px; font-weight:560;
+  border:1px solid var(--line); background:var(--bg); color:var(--fg); transition:.16s ease;
 }
-.btn:hover{transform:translateY(-1px)}
+.btn:hover{background:var(--card-2)}
 .btn-primary{
-  background:linear-gradient(160deg,var(--accent),var(--accent-2));
-  color:#fff; border-color:transparent;
-  box-shadow:0 6px 22px -10px color-mix(in srgb,var(--accent) 90%,transparent);
+  background:var(--accent); color:#fff; border-color:var(--accent);
 }
-.btn-sm{height:36px;padding:0 15px;font-size:14px;border-radius:9px}
+.btn-primary:hover{background:var(--accent-hover); border-color:var(--accent-hover)}
+.btn-sm{height:34px;padding:0 16px;font-size:13.5px}
 
 /* hero */
 .hero{padding:84px 0 76px; border-top:none}
 .hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center}
 @media(max-width:900px){.hero-grid{grid-template-columns:1fr; gap:44px}}
 .hero h1{font-size:clamp(38px,6vw,62px); font-weight:700}
-.hero .grad{background:linear-gradient(100deg,var(--accent),var(--accent-2));
-  -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero .grad{color:var(--accent)}
 .hero .lede{font-size:19px; margin-top:20px}
 .cta{display:flex; gap:12px; margin-top:32px; flex-wrap:wrap}
 .req{margin-top:18px; font-size:13px; color:var(--faint)}
@@ -143,8 +134,7 @@ nav a.nl:hover{color:var(--fg)}
 .tbl th,.tbl td{text-align:left; padding:13px 14px; border-bottom:1px solid var(--line)}
 .tbl th{font-weight:600; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint)}
 .tbl td:last-child{font-family:var(--mono); font-size:13px; color:var(--muted)}
-.ok{color:#16a34a; font-weight:600}
-@media (prefers-color-scheme:dark){.ok{color:#4ade80}}
+.ok{color:#1a7f37; font-weight:600}
 
 /* steps */
 .steps{counter-reset:s; margin-top:38px; display:grid; gap:14px}
@@ -152,7 +142,7 @@ nav a.nl:hover{color:var(--fg)}
   background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px}
 .step::before{counter-increment:s; content:counter(s);
   width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
-  background:linear-gradient(160deg,var(--accent),var(--accent-2)); color:#fff;
+  background:var(--accent); color:#fff;
   font:600 13px/1 var(--sans)}
 .step p{color:var(--muted); font-size:14.5px; margin-top:6px}
 pre{background:var(--card-2); border:1px solid var(--line); border-radius:10px;
@@ -227,9 +217,7 @@ footer{border-top:1px solid var(--line); padding:44px 0; color:var(--faint); fon
           <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="var(--card-2)"/><stop offset="1" stop-color="var(--card)"/>
           </linearGradient>
-          <linearGradient id="acc" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
-          </linearGradient>
+
         </defs>
 
         <!-- screen -->
@@ -252,14 +240,14 @@ footer{border-top:1px solid var(--line); padding:44px 0; color:var(--faint); fon
 
         <!-- tap zones -->
         <g class="tapzone">
-          <circle class="ring"   cx="134" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
-          <circle class="ring b" cx="134" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
-          <circle class="dot"    cx="134" cy="296" r="6.5" fill="url(#acc)"/>
+          <circle class="ring"   cx="134" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <circle class="ring b" cx="134" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <circle class="dot"    cx="134" cy="296" r="6.5" fill="var(--accent)"/>
         </g>
         <g class="tapzone">
-          <circle class="ring c"   cx="386" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
-          <circle class="ring d"   cx="386" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
-          <circle class="dot b"    cx="386" cy="296" r="6.5" fill="url(#acc)"/>
+          <circle class="ring c"   cx="386" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <circle class="ring d"   cx="386" cy="296" r="16" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <circle class="dot b"    cx="386" cy="296" r="6.5" fill="var(--accent)"/>
         </g>
 
         <text x="134" y="340" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="var(--faint)">LEFT</text>
