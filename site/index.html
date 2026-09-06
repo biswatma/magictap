@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MagicTap — tap your MacBook to trigger anything</title>
+<meta name="description" content="Tap the case beside your trackpad to fire any of 51 actions. MagicTap reads the motion sensor inside Apple silicon MacBooks — no extra hardware.">
+<meta name="theme-color" content="#5a5cf5">
+<meta property="og:title" content="MagicTap — tap your MacBook to trigger anything">
+<meta property="og:description" content="Tap the case beside your trackpad to fire any of 51 actions. Reads the IMU inside Apple silicon MacBooks.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%235a5cf5'/><stop offset='1' stop-color='%23944aed'/></linearGradient></defs><rect width='100' height='100' rx='24' fill='url(%23g)'/><circle cx='50' cy='50' r='13' fill='white'/><circle cx='50' cy='50' r='26' fill='none' stroke='white' stroke-width='5' opacity='.55'/></svg>">
+
+<style>
+:root{
+  --bg:#ffffff; --fg:#0d0d11; --muted:#6b6b76; --faint:#9a9aa5;
+  --line:#e8e8ee; --card:#fbfbfd; --card-2:#f4f4f8;
+  --accent:#5a5cf5; --accent-2:#944aed;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --w:1080px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0b0b0f; --fg:#f2f2f5; --muted:#9e9eab; --faint:#6f6f7c;
+    --line:#1e1e26; --card:#111117; --card-2:#15151d;
+    --accent:#7b7dff; --accent-2:#b06cff;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body,html{overflow-x:hidden; max-width:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:var(--sans); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased; letter-spacing:-.011em;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+a{color:inherit}
+.wrap{max-width:var(--w); margin:0 auto; padding:0 24px}
+section{padding:88px 0; border-top:1px solid var(--line)}
+h1,h2,h3{letter-spacing:-.03em; line-height:1.12; margin:0}
+h2{font-size:clamp(26px,3.4vw,36px); font-weight:680}
+h3{font-size:17px; font-weight:640; letter-spacing:-.02em}
+p{margin:0}
+.lede{color:var(--muted); font-size:17px; max-width:60ch; margin-top:14px}
+.eyebrow{
+  font:600 12px/1 var(--mono); letter-spacing:.09em; text-transform:uppercase;
+  color:var(--accent); margin-bottom:16px;
+}
+code,kbd{font-family:var(--mono); font-size:.88em}
+
+/* nav */
+header{
+  position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--bg) 82%,transparent);
+  backdrop-filter:saturate(180%) blur(14px); border-bottom:1px solid var(--line);
+}
+nav{display:flex; align-items:center; gap:28px; height:60px}
+.brand{display:flex; align-items:center; gap:10px; font-weight:650; letter-spacing:-.02em; text-decoration:none}
+.mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(160deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;flex:none}
+.mark span{width:8px;height:8px;border-radius:50%;background:#fff}
+nav .links{display:flex; gap:24px; margin-left:auto; align-items:center}
+nav a.nl{color:var(--muted); text-decoration:none; font-size:14px}
+nav a.nl:hover{color:var(--fg)}
+@media(max-width:720px){nav .links a.nl{display:none}}
+
+/* buttons */
+.btn{
+  display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 20px;
+  border-radius:11px; text-decoration:none; font-size:15px; font-weight:560;
+  border:1px solid var(--line); background:var(--card); transition:.16s ease;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{
+  background:linear-gradient(160deg,var(--accent),var(--accent-2));
+  color:#fff; border-color:transparent;
+  box-shadow:0 6px 22px -10px color-mix(in srgb,var(--accent) 90%,transparent);
+}
+.btn-sm{height:36px;padding:0 15px;font-size:14px;border-radius:9px}
+
+/* hero */
+.hero{padding:84px 0 76px; border-top:none}
+.hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr; gap:44px}}
+.hero h1{font-size:clamp(38px,6vw,62px); font-weight:700}
+.hero .grad{background:linear-gradient(100deg,var(--accent),var(--accent-2));
+  -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero .lede{font-size:19px; margin-top:20px}
+.cta{display:flex; gap:12px; margin-top:32px; flex-wrap:wrap}
+.req{margin-top:18px; font-size:13px; color:var(--faint)}
+
+/* macbook illustration */
+.viz{width:100%;height:auto;display:block}
+.ring,.dot{transform-box:fill-box; transform-origin:center}
+.ring{animation:ring 3.6s ease-out infinite}
+.ring.b{animation-delay:.26s}
+.ring.c{animation-delay:1.8s}
+.ring.d{animation-delay:2.06s}
+@keyframes ring{
+  0%{opacity:0;transform:scale(.35)}
+  8%{opacity:.75}
+  40%{opacity:0;transform:scale(1.9)}
+  100%{opacity:0;transform:scale(1.9)}
+}
+.dot{animation:dot 3.6s ease-out infinite}
+.dot.b{animation-delay:.26s}
+@keyframes dot{0%,6%{opacity:.95}30%,100%{opacity:.28}}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line);
+  border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-top:8px}
+@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--bg); padding:22px 20px}
+.stat b{display:block; font-size:26px; font-weight:660; letter-spacing:-.03em; font-variant-numeric:tabular-nums}
+.stat span{font-size:13px; color:var(--muted)}
+
+/* generic cards */
+.grid{display:grid; gap:16px; margin-top:38px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:860px){.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px}
+.card p{color:var(--muted); font-size:14.5px; margin-top:8px}
+.num{font:600 12px/1 var(--mono); color:var(--accent); margin-bottom:12px; display:block}
+
+/* actions */
+.cols{display:flex; flex-wrap:wrap; gap:20px; margin-top:38px; align-items:flex-start}
+.col{flex:1 1 300px; min-width:0; display:flex; flex-direction:column; gap:20px}
+.actgroup{background:var(--card); border:1px solid var(--line);
+  border-radius:14px; padding:20px}
+.actgroup h3{display:flex; align-items:center; gap:8px; margin-bottom:14px}
+.actgroup h3 em{font:500 11px/1 var(--mono); font-style:normal; color:var(--faint);
+  margin-left:auto; letter-spacing:.04em}
+.actgroup ul{list-style:none; margin:0; padding:0}
+.actgroup li{font-size:14px; color:var(--muted); padding:5px 0 5px 16px; position:relative}
+.actgroup li::before{content:""; position:absolute; left:0; top:13px; width:5px; height:5px;
+  border-radius:50%; background:var(--line); outline:1px solid var(--line)}
+
+/* table */
+.tblwrap{overflow-x:auto; margin-top:26px; -webkit-overflow-scrolling:touch}
+.tbl{width:100%; border-collapse:collapse; font-size:14.5px; min-width:460px}
+.tbl th,.tbl td{text-align:left; padding:13px 14px; border-bottom:1px solid var(--line)}
+.tbl th{font-weight:600; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint)}
+.tbl td:last-child{font-family:var(--mono); font-size:13px; color:var(--muted)}
+.ok{color:#16a34a; font-weight:600}
+@media (prefers-color-scheme:dark){.ok{color:#4ade80}}
+
+/* steps */
+.steps{counter-reset:s; margin-top:38px; display:grid; gap:14px}
+.step{display:grid; grid-template-columns:34px 1fr; gap:16px; align-items:start;
+  background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px}
+.step::before{counter-increment:s; content:counter(s);
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(160deg,var(--accent),var(--accent-2)); color:#fff;
+  font:600 13px/1 var(--sans)}
+.step p{color:var(--muted); font-size:14.5px; margin-top:6px}
+pre{background:var(--card-2); border:1px solid var(--line); border-radius:10px;
+  padding:12px 14px; overflow-x:auto; margin:12px 0 0; font-size:13px}
+pre code{color:var(--fg)}
+
+/* faq */
+details{border-bottom:1px solid var(--line)}
+details summary{
+  cursor:pointer; list-style:none; padding:20px 40px 20px 0; position:relative;
+  font-weight:560; font-size:16.5px; letter-spacing:-.015em;
+}
+details summary::-webkit-details-marker{display:none}
+details summary::after{
+  content:""; position:absolute; right:6px; top:50%; width:9px; height:9px;
+  border-right:1.8px solid var(--faint); border-bottom:1.8px solid var(--faint);
+  transform:translateY(-70%) rotate(45deg); transition:transform .18s ease;
+}
+details[open] summary::after{transform:translateY(-30%) rotate(225deg)}
+details .a{padding:0 0 22px; color:var(--muted); font-size:15px; max-width:72ch}
+details .a p+p{margin-top:12px}
+
+/* footer */
+footer{border-top:1px solid var(--line); padding:44px 0; color:var(--faint); font-size:14px}
+.foot{display:flex; gap:20px; align-items:center; flex-wrap:wrap}
+.foot a{color:var(--muted); text-decoration:none}
+.foot a:hover{color:var(--fg)}
+.note{background:var(--card-2); border:1px solid var(--line); border-left:3px solid var(--accent);
+  border-radius:0 10px 10px 0; padding:16px 18px; margin-top:26px; font-size:14.5px; color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="#top"><span class="mark"><span></span></span> MagicTap</a>
+      <div class="links">
+        <a class="nl" href="#how">How it works</a>
+        <a class="nl" href="#actions">Actions</a>
+        <a class="nl" href="#accuracy">Accuracy</a>
+        <a class="nl" href="#install">Install</a>
+        <a class="nl" href="#faq">FAQ</a>
+        <a class="btn btn-sm" href="https://github.com/biswatma/magictap">GitHub</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>Tap your MacBook.<br><span class="grad">Something happens.</span></h1>
+      <p class="lede">
+        Knock twice on the case beside your trackpad and fire any of 51 actions —
+        a screenshot, a Shortcut, a keystroke, your own command. No extra hardware,
+        no accessory, no key to remember.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/biswatma/magictap/releases">Download for macOS</a>
+        <a class="btn" href="https://github.com/biswatma/magictap">View source</a>
+      </div>
+      <p class="req">Apple silicon MacBook · macOS 14 or later · free and open source</p>
+    </div>
+
+    <div>
+      <svg class="viz" viewBox="0 0 520 350" role="img" aria-label="Top-down MacBook with tap zones on either side of the trackpad">
+        <defs>
+          <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="var(--card-2)"/><stop offset="1" stop-color="var(--card)"/>
+          </linearGradient>
+          <linearGradient id="acc" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
+          </linearGradient>
+        </defs>
+
+        <!-- screen -->
+        <rect x="72" y="14" width="376" height="150" rx="10" fill="url(#body)" stroke="var(--line)" stroke-width="1.5"/>
+        <rect x="84" y="26" width="352" height="126" rx="5" fill="var(--bg)" stroke="var(--line)"/>
+        <!-- hinge -->
+        <rect x="60" y="168" width="400" height="7" rx="3.5" fill="var(--line)"/>
+        <!-- base -->
+        <rect x="52" y="178" width="416" height="158" rx="13" fill="url(#body)" stroke="var(--line)" stroke-width="1.5"/>
+        <!-- keyboard -->
+        <g fill="var(--line)">
+          <rect x="76" y="194" width="368" height="9" rx="3"/>
+          <rect x="76" y="208" width="368" height="9" rx="3"/>
+          <rect x="76" y="222" width="368" height="9" rx="3"/>
+          <rect x="76" y="236" width="368" height="9" rx="3"/>
+          <rect x="120" y="250" width="280" height="9" rx="3"/>
+        </g>
+        <!-- trackpad -->
+        <rect x="196" y="270" width="128" height="52" rx="7" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5"/>
+
+        <!-- tap zones -->
+        <g class="tapzone">
+          <circle class="ring"   cx="134" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
+          <circle class="ring b" cx="134" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
+          <circle class="dot"    cx="134" cy="296" r="6.5" fill="url(#acc)"/>
+        </g>
+        <g class="tapzone">
+          <circle class="ring c"   cx="386" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
+          <circle class="ring d"   cx="386" cy="296" r="16" fill="none" stroke="url(#acc)" stroke-width="2"/>
+          <circle class="dot b"    cx="386" cy="296" r="6.5" fill="url(#acc)"/>
+        </g>
+
+        <text x="134" y="340" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="var(--faint)">LEFT</text>
+        <text x="386" y="340" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="var(--faint)">RIGHT</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><b>51</b><span>built-in actions</span></div>
+      <div class="stat"><b>800 Hz</b><span>sensor sampling</span></div>
+      <div class="stat"><b>~50 ms</b><span>tap to action</span></div>
+      <div class="stat"><b>0</b><span>network requests</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">How it works</div>
+    <h2>Your MacBook already has the sensor</h2>
+    <p class="lede">
+      Apple silicon MacBooks from the 2021 MacBook Pro and 2022 MacBook Air redesigns
+      contain a Bosch BMI282 six-axis motion sensor, sitting behind the Sensor Processing
+      Unit. It is there for the lid-angle mechanism. MagicTap listens to it.
+    </p>
+
+    <div class="grid g3">
+      <div class="card">
+        <span class="num">01 — READ</span>
+        <h3>800 samples a second</h3>
+        <p>
+          The sensor streams calibrated acceleration at 800 Hz. A knock on the case shows
+          up as a sharp transient riding on top of gravity, which is tracked separately and
+          subtracted away.
+        </p>
+      </div>
+      <div class="card">
+        <span class="num">02 — DETECT</span>
+        <h3>Find the strike</h3>
+        <p>
+          A tap is a peak in that residual, above a threshold and outside a 0.12 s refractory
+          window. Below 0.12 s the ringdown of one hard tap starts counting as a second — a
+          floor measured from real recordings, not guessed.
+        </p>
+      </div>
+      <div class="card">
+        <span class="num">03 — CLASSIFY</span>
+        <h3>Left or right</h3>
+        <p>
+          Struck off-centre the chassis pivots, so lateral and vertical motion couple with a
+          sign that depends on which side was hit. The correlation between those axes
+          separates the two cleanly — 40 out of 40 on labelled recordings.
+        </p>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Why a correlation?</strong> Because it is scale-invariant. Multiply the whole
+      waveform by any constant and the measure does not move — so how hard you tap cannot
+      leak into which side it thinks you tapped. Measured separation on real data: d′ = 5.71.
+    </div>
+  </div>
+</section>
+
+<!-- ACTIONS -->
+<section id="actions">
+  <div class="wrap">
+    <div class="eyebrow">Actions</div>
+    <h2>51 built-in actions</h2>
+    <p class="lede">
+      Bind one to a double tap, and optionally different ones to a single tap on the left
+      and on the right. Five take a value you type in — a keystroke, an app, a URL, a
+      Shortcut name, a shell command.
+    </p>
+    <div class="cols" id="actioncols"></div>
+  </div>
+</section>
+
+<!-- ACCURACY -->
+<section id="accuracy">
+  <div class="wrap">
+    <div class="eyebrow">Accuracy</div>
+    <h2>The hard part is not detecting taps</h2>
+    <p class="lede">
+      It is refusing everything else. A laptop chassis is struck constantly — by typing, by
+      being picked up, by being dragged across a bed. Each of those had to be measured and
+      ruled out separately.
+    </p>
+
+    <div class="grid g3">
+      <div class="card">
+        <h3>Typing is not a tap</h3>
+        <p>
+          Keystrokes are impacts on the same case, and two inside the double-tap window look
+          exactly like a double tap. MagicTap asks the window server how long since real
+          input and ignores taps within 0.35 s of a keystroke — timing only, never content.
+        </p>
+      </div>
+      <div class="card">
+        <h3>A tilt is not a tap</h3>
+        <p>
+          Pick the Mac up and the gravity baseline no longer matches, which once made every
+          sample read as a tap forever. The baseline now resyncs, and a tap must actually
+          settle to count — a strike rings and dies, a new posture does not.
+        </p>
+      </div>
+      <div class="card">
+        <h3>A drag is not a tap</h3>
+        <p>
+          Sliding it across a bed makes friction bumps that rise and settle just like taps.
+          What separates them is isolation: a deliberate tap happens on a still machine.
+          Taps arriving mid-motion are dropped.
+        </p>
+      </div>
+    </div>
+
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Scenario</th><th>Expected</th><th>Measured</th></tr></thead>
+      <tbody>
+        <tr><td>Labelled tap recordings, left and right</td><td>40 taps, correct sides</td><td><span class="ok">40 / 40</span></td></tr>
+        <tr><td>Five deliberate double taps</td><td>5 gestures</td><td><span class="ok">5</span></td></tr>
+        <tr><td>12 seconds dragging the Mac</td><td>no gestures</td><td><span class="ok">0</span></td></tr>
+        <tr><td>6 seconds held tilted</td><td>no gestures</td><td><span class="ok">0</span></td></tr>
+        <tr><td>12 seconds on a moving lap</td><td>no gestures</td><td><span class="ok">0</span></td></tr>
+        <tr><td>Tapping while tilted</td><td>6 taps, correct side</td><td><span class="ok">6 / 6</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="req" style="margin-top:18px">
+      Every one of these is a file in the repository. Clone it and replay them yourself —
+      the claims are checkable without owning the hardware.
+    </p>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install">
+  <div class="wrap">
+    <div class="eyebrow">Install</div>
+    <h2>Four steps</h2>
+
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Download and move to Applications</h3>
+          <p>Open the DMG and drag MagicTap across. Launch it from Applications, not from the
+             disk image — macOS ties permissions to a specific copy of an app.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Open it the first time with right-click → Open</h3>
+          <p>MagicTap is not notarised by Apple, so a plain double-click is refused. Right-click
+             the app, choose Open, confirm. Once is enough.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Grant the permissions it asks for</h3>
+          <p>Screen Recording for screenshots, Accessibility for keystrokes and window
+             management. The setup window walks through both and tells you which your chosen
+             actions actually need. Quit and reopen afterwards.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Tap twice</h3>
+          <p>Knock the case beside the trackpad. Hands off the keyboard first — taps during
+             typing are ignored on purpose.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      Prefer to build it yourself? <code>git clone</code> the repo and run <code>./build-app.sh</code>.
+      There is also a command-line version for recording, replaying and tuning detection.
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="eyebrow">FAQ</div>
+    <h2>Questions</h2>
+    <div style="margin-top:30px">
+
+      <details open><summary>Which MacBooks does it work on?</summary><div class="a">
+        <p>Apple silicon MacBooks from the 2021 redesign onward: MacBook Pro with M1 Pro or
+        M1 Max and every model since, and MacBook Air from M2 onward. Those are the machines
+        that carry the motion sensor MagicTap reads.</p>
+        <p>Intel Macs, the M1 MacBook Air and the M1 13-inch MacBook Pro do not have it and
+        cannot be supported. MagicTap tells you at launch rather than silently doing nothing.
+        macOS 14 or later is required.</p>
+      </div></details>
+
+      <details><summary>Does it work on a desktop Mac?</summary><div class="a">
+        <p>No. The sensor exists to measure the angle of a laptop lid, so a Mac mini, Studio
+        or iMac has no equivalent.</p>
+      </div></details>
+
+      <details><summary>Will it fire while I type?</summary><div class="a">
+        <p>No. Keystrokes are genuine impacts on the same chassis — this was the first bug
+        found in real use. MagicTap asks the window server how long it has been since real
+        keyboard or trackpad input and ignores taps within 0.35 s of it.</p>
+        <p>That check reads <em>timing only</em>. It never sees which keys you pressed, and it
+        needs no Accessibility or Input Monitoring permission to do it.</p>
+      </div></details>
+
+      <details><summary>Will it fire when I pick up or move my Mac?</summary><div class="a">
+        <p>It shouldn't. Two separate guards handle it. A sustained change in orientation —
+        tilting, lap use, being carried — resyncs the gravity baseline instead of reading as
+        an endless stream of taps, and a tap has to settle to count at all.</p>
+        <p>Separately, a tap that arrives while the machine is already in motion is dropped,
+        which is what stops dragging it across a bed from firing. Both are switchable in
+        Settings if you want to see the raw behaviour.</p>
+      </div></details>
+
+      <details><summary>Can I use it on my lap, or in bed?</summary><div class="a">
+        <p>Yes. Once your posture settles, the baseline follows the new orientation and taps
+        register against it. What is ignored is the moment of movement itself — while you are
+        actively shifting or sliding the machine.</p>
+      </div></details>
+
+      <details><summary>Why does macOS say the app is from an unidentified developer?</summary><div class="a">
+        <p>Because it is not notarised by Apple. Notarisation needs a paid Apple Developer
+        account. Right-click the app and choose Open the first time and macOS will remember.</p>
+        <p>The same limitation means MagicTap cannot go on the Mac App Store: reading this
+        sensor requires private system interfaces that App Store review does not allow.</p>
+      </div></details>
+
+      <details><summary>Why does it need Screen Recording and Accessibility?</summary><div class="a">
+        <p>Screen Recording is required by macOS for anything that captures the screen, so the
+        three screenshot actions need it. It is used only at the moment you trigger one.</p>
+        <p>Accessibility is required to synthesise keystrokes and to move other apps' windows,
+        so roughly half the catalogue needs it. Screenshots, volume, lock, sleep and
+        connectivity do not.</p>
+        <p>MagicTap refuses to run an action whose permission is missing rather than trying and
+        failing, and the settings screen flags any action you pick that needs one you have not
+        granted.</p>
+      </div></details>
+
+      <details><summary>Does it watch my screen or record what I type?</summary><div class="a">
+        <p>No. MagicTap reads one thing continuously: the accelerometer. The typing guard reads
+        the <em>time since</em> the last input event and nothing about the event itself.</p>
+        <p>Screen Recording is exercised only in the instant you fire a screenshot action, and
+        the image goes to your clipboard or your Desktop. The app makes no network requests at
+        all — there is no analytics, no account and no update check.</p>
+      </div></details>
+
+      <details><summary>How does it tell left from right?</summary><div class="a">
+        <p>When you strike the case off-centre, the whole chassis pivots. Lateral and vertical
+        motion therefore couple together, in phase for one side and out of phase for the other.
+        Correlating those two axes across the tap separates them.</p>
+        <p>On the machine it was developed against the two sides sat at +0.32 and −0.80, a
+        separation of d′ = 5.71 with no overlap across 42 labelled taps. The boundary is
+        specific to one chassis, and the repository includes the tool to re-derive it for
+        another model from twenty taps a side.</p>
+      </div></details>
+
+      <details><summary>How fast is it?</summary><div class="a">
+        <p>Around 50 ms from tap to action. The detector waits 40 ms after the peak to see the
+        full shape of the strike before deciding, which is the floor — it cannot classify a tap
+        it has not finished observing. Fast enough to feel immediate.</p>
+      </div></details>
+
+      <details><summary>What about battery?</summary><div class="a">
+        <p>MagicTap listens to a sensor your Mac is already running for its lid-angle
+        mechanism, holds no timers of its own and makes no network requests. It has not been
+        put through formal battery benchmarking, so no percentage figure is claimed here.</p>
+      </div></details>
+
+      <details><summary>Single taps as well as double?</summary><div class="a">
+        <p>Yes — a single tap on the left and on the right can each have their own action.
+        They are unbound by default, because a single tap has to wait out the double-tap
+        window to prove no second tap is coming, and leaving them off keeps stray knocks
+        silent.</p>
+      </div></details>
+
+      <details><summary>Are there actions that do not fully work?</summary><div class="a">
+        <p>Four worth stating plainly. <strong>Toggle Focus</strong> runs a Shortcut you name,
+        because macOS exposes no public API for Focus modes. <strong>App switcher</strong>
+        sends ⌘Tab but cannot step further, which needs the key held down.
+        <strong>Current weather</strong> opens the Weather app rather than reporting inline.
+        <strong>Bluetooth</strong> uses a private system interface and reports itself
+        unavailable if a future macOS removes it.</p>
+      </div></details>
+
+      <details><summary>It is not detecting my taps.</summary><div class="a">
+        <p>Take your hands off the keyboard and stop moving the machine, then tap the
+        <em>case</em> rather than the trackpad — a firm knuckle tap beside it works best. The
+        setup window has a live monitor that shows every tap it sees, including ones it chose
+        to ignore and why.</p>
+        <p>If taps still do not register, lower the tap-strength slider in Settings. If they
+        register but double taps do not, widen the double-tap window.</p>
+      </div></details>
+
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span class="brand" style="gap:8px"><span class="mark" style="width:20px;height:20px;border-radius:6px"><span style="width:6px;height:6px"></span></span> MagicTap</span>
+    <span>Reads the sensor your MacBook already has.</span>
+    <span style="margin-left:auto; display:flex; gap:20px">
+      <a href="https://github.com/biswatma/magictap">GitHub</a>
+      <a href="https://github.com/biswatma/magictap/releases">Releases</a>
+      <a href="https://github.com/biswatma/magictap/issues">Report an issue</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+const ACTIONS = {
+  "Screenshots & clipboard": ["Screenshot → Clipboard","Screenshot → Desktop","Screenshot (select area)","Copy (⌘C)","Paste (⌘V)","Paste without formatting","Undo (⌘Z)","Redo (⇧⌘Z)"],
+  "Media & volume": ["Mute / unmute sound","Volume up","Volume down","Play / Pause","Next track","Previous track"],
+  "Input, display & focus": ["Mute / unmute microphone","Brightness up","Brightness down","Keyboard backlight up","Keyboard backlight down","Toggle Focus…"],
+  "Window & workspace": ["Mission Control","Spotlight search","Quick Note","Minimize front window","Close front window","Window → left half","Window → right half","Maximize window","Toggle full screen","Hide front app","Hide other apps","Previous Space","Next Space","Switch to previous app","App switcher (tap to step)","Quit front app"],
+  "Lock, sleep & screensaver": ["Lock screen","Start screen saver","Sleep display"],
+  "Connectivity": ["Wi-Fi on / off","Bluetooth on / off","Eject external disks"],
+  "System status & utilities": ["Empty Trash","Battery status","New email","Current weather"],
+  "Custom shortcuts": ["Press keyboard shortcut…","Open application…","Open URL…","Run Shortcut…","Run a custom command…"]
+};
+
+// Columns are assigned by hand rather than left to CSS multi-column, which
+// balances by height and strands one column short. 17 / 16 / 18 items.
+const COLUMNS = [
+  ["Screenshots & clipboard", "Media & volume", "Lock, sleep & screensaver"],
+  ["Window & workspace"],
+  ["Input, display & focus", "Connectivity", "System status & utilities", "Custom shortcuts"]
+];
+
+function groupCard(group, items) {
+  const box = document.createElement('div');
+  box.className = 'actgroup';
+  const h = document.createElement('h3');
+  h.textContent = group;
+  const count = document.createElement('em');
+  count.textContent = items.length;
+  h.appendChild(count);
+  const ul = document.createElement('ul');
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.textContent = item;
+    ul.appendChild(li);
+  }
+  box.append(h, ul);
+  return box;
+}
+
+const host = document.getElementById('actioncols');
+for (const groups of COLUMNS) {
+  const col = document.createElement('div');
+  col.className = 'col';
+  for (const g of groups) col.appendChild(groupCard(g, ACTIONS[g]));
+  host.appendChild(col);
+}
+</script>
+</body>
+</html>

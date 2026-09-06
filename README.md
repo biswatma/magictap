@@ -419,6 +419,26 @@ swapped, then check it with:
 ./bin/magictap replay right.csv --expect=right
 ```
 
+## Website
+
+`site/index.html` is the landing page — a single self-contained file, no build
+step, no dependencies. `vercel.json` points Vercel at it.
+
+To deploy: import the repository at vercel.com. The config sets the output
+directory to `site`, so it should need no further setup. If Vercel asks for a
+framework, choose **Other**. Setting the project's Root Directory to `site` in
+the dashboard works equally well as an alternative to the config file.
+
+To preview locally:
+
+```sh
+open site/index.html          # it is a plain file, no server needed
+```
+
+The action list on the page is generated from the same names as
+`app/Actions.swift`; if you add an action, update the `ACTIONS` object at the
+bottom of the page to match.
+
 ## Layout
 
 ```
@@ -439,6 +459,8 @@ app/tools/make-icon.swift  renders the .icns from an SF Symbol
 probe/accelprobe.swift the IOHIDDevice path that does not work, kept as a record
 probe/sensorprobe.swift first working spike via the event system
 tools/analyze.py       offline search for a left/right discriminator
+site/index.html        the landing page
+vercel.json            points Vercel at site/
 ```
 
 ## Status
