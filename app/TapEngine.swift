@@ -90,6 +90,7 @@ final class TapEngine: ObservableObject {
         gate.enabled = s.inputGuard
         gestures.doubleWindow = s.doubleWindow
         gestures.wantsSingles = s.leftAction != .none || s.rightAction != .none
+        gestures.requireIsolation = s.motionGuard
     }
 
     /// Called after the user grants permission, to clear the warning state.
@@ -126,8 +127,16 @@ final class TapEngine: ObservableObject {
         Log.write(String(format: "tap side=%@ peak=%.3f corr_xz=%+.3f",
                          tap.side.rawValue, tap.peak, tap.corrXZ))
 
-        if let gesture = gestures.feed(tap) {
+        switch gestures.feed(tap) {
+        case .gesture(let gesture):
             fire(gesture)
+        case .notIsolated(let activity):
+            suppressedCount += 1
+            show(String(format: "%@  %.2f g  ignored — Mac was moving", tap.side.rawValue, tap.peak))
+            Log.write(String(format: "tap ignored (moving) side=%@ peak=%.3f activity=%.2f",
+                             tap.side.rawValue, tap.peak, activity))
+        case .opened:
+            break
         }
     }
 

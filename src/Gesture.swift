@@ -25,6 +25,17 @@ public enum Gesture {
     }
 }
 
+/// What feeding a tap to the recogniser produced.
+public enum TapOutcome {
+    /// Discarded: the machine was already moving, so this is not a deliberate
+    /// tap but one bump among many.
+    case notIsolated(Double)
+    /// Held, pending a possible second tap.
+    case opened
+    /// Completed a gesture.
+    case gesture(Gesture)
+}
+
 public final class GestureRecognizer {
     /// Maximum gap between the two taps of a double tap.
     public var doubleWindow: Double = 0.45
@@ -32,20 +43,40 @@ public final class GestureRecognizer {
     /// single-tap latency is paid and stray knocks stay silent.
     public var wantsSingles: Bool
 
+    /// Reject a gesture-opening tap when this fraction of the preceding window
+    /// was already in motion. Deliberate taps on a still machine measure near
+    /// zero; dragging it across a bed is in motion continuously.
+    /// Measured on this hardware: deliberate taps reach at most 0.07, taps
+    /// during dragging sit near 1.0.
+    public var calmRatio: Double = 0.10
+    /// Set false to accept every tap, for calibration.
+    public var requireIsolation: Bool = true
+
     private var pending: Tap?
+
+    public var hasPending: Bool { pending != nil }
 
     public init(wantsSingles: Bool) {
         self.wantsSingles = wantsSingles
     }
 
-    /// Feeds a classified tap. Returns a double tap immediately on the second.
-    public func feed(_ tap: Tap) -> Gesture? {
+    /// Feeds a classified tap. A double tap completes on the second tap.
+    public func feed(_ tap: Tap) -> TapOutcome {
         if let first = pending, tap.time - first.time <= doubleWindow {
             pending = nil
-            return .double(first.side, tap.side)
+            return .gesture(.double(first.side, tap.side))
         }
+
+        // Opening a gesture requires an isolated tap. A tap that merely
+        // continues existing motion never becomes pending, so a stream of
+        // bumps cannot pair up into a double.
+        if requireIsolation && tap.backgroundActivity > calmRatio {
+            pending = nil
+            return .notIsolated(tap.backgroundActivity)
+        }
+
         pending = tap
-        return nil
+        return .opened
     }
 
     /// Call periodically. Emits a single tap once its window has closed with no

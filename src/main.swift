@@ -90,6 +90,7 @@ var doubleWindow = 0.45
 var actions = ActionRunner()
 var doubleBound = false
 var gate = TapGate()
+var requireIsolation = true
 
 if command == "record" || command == "replay" {
     guard let p = args.first, !p.hasPrefix("--") else { fail("\(command) needs a file path") }
@@ -102,6 +103,7 @@ for arg in args {
     case "--gyro": useGyro = true
     case "--quiet": quiet = true
     case "--no-guard": gate.enabled = false
+    case "--no-calm": requireIsolation = false
     case "--check": checkOnly = true
     case "--invert": config.invert = true
     case "--verbose": verbose = true
@@ -160,8 +162,13 @@ if command == "replay" {
     }
 
     let detector = TapDetector(config: config)
+    let gestures = GestureRecognizer(wantsSingles: false)
+    gestures.doubleWindow = doubleWindow
+    gestures.requireIsolation = requireIsolation
     var counts: [String: Int] = ["left": 0, "right": 0, "unknown": 0]
     var index = 0
+    var gestureCount = 0
+    var notIsolated = 0
 
     for rawLine in text.split(separator: "\n") {
         // Tolerate CRLF, which any CSV written on another tool may carry.
@@ -172,14 +179,20 @@ if command == "replay" {
         guard let tap = detector.process(MotionSample(x: x, y: y, z: z, time: t)) else { continue }
         index += 1
         counts[tap.side.rawValue, default: 0] += 1
+        switch gestures.feed(tap) {
+        case .gesture: gestureCount += 1
+        case .notIsolated: notIsolated += 1
+        case .opened: break
+        }
         let mark = expected.map { tap.side.rawValue == $0 ? " " : " MISS" } ?? ""
-        print(String(format: "tap #%03d  %@  peak=%6.3f g  corr_xz=%+6.3f  corr_xy=%+6.3f  n=%d%@",
+        print(String(format: "tap #%03d  %@  peak=%6.3f g  corr_xz=%+6.3f  bg=%.3f  n=%d%@",
                      index, tap.side.rawValue.padding(toLength: 7, withPad: " ", startingAt: 0),
-                     tap.peak, tap.corrXZ, tap.corrXY, tap.sampleCount, mark))
+                     tap.peak, tap.corrXZ, tap.backgroundActivity, tap.sampleCount, mark))
     }
 
     print("\n\(index) taps — left \(counts["left"]!), right \(counts["right"]!), "
           + "unknown \(counts["unknown"]!)")
+    print("\(gestureCount) double-tap gestures, \(notIsolated) taps ignored as not isolated")
     if let want = expected, index > 0 {
         let hits = counts[want]!
         print(String(format: "expected all %@: %d/%d correct (%.1f%%)",
@@ -322,6 +335,7 @@ case "run":
     let detector = TapDetector(config: config)
     let gestures = GestureRecognizer(wantsSingles: actions.wantsSingles)
     gestures.doubleWindow = doubleWindow
+    gestures.requireIsolation = requireIsolation
 
     print("""
     \(properties["model"] ?? "sensor") — listening
@@ -383,11 +397,19 @@ case "run":
             return
         }
 
-        if let g = gestures.feed(tap) {
+        switch gestures.feed(tap) {
+        case .gesture(let g):
             fire(g)
-        } else if !quiet {
-            print(String(format: "          tap %@ peak=%.3f g corr_xz=%+.3f",
-                         tap.side.rawValue, tap.peak, tap.corrXZ))
+        case .notIsolated(let ratio):
+            if !quiet {
+                print(String(format: "          tap %@ peak=%.3f g  ignored — machine already moving (bg %.2f)",
+                             tap.side.rawValue, tap.peak, ratio))
+            }
+        case .opened:
+            if !quiet {
+                print(String(format: "          tap %@ peak=%.3f g corr_xz=%+.3f bg=%.2f",
+                             tap.side.rawValue, tap.peak, tap.corrXZ, tap.backgroundActivity))
+            }
         }
     }
 

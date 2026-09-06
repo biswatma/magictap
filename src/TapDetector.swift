@@ -36,6 +36,10 @@ public struct Tap {
     /// The discriminator, and a secondary feature kept for diagnostics.
     public let corrXZ: Double
     public let corrXY: Double
+    /// Fraction of the window before the strike that was already in motion.
+    /// Near zero for a tap on a still machine; high while the machine is being
+    /// dragged, carried or jostled.
+    public let backgroundActivity: Double
     public let sampleCount: Int
     public let sampleRate: Double
 }
@@ -57,6 +61,15 @@ public struct TapConfig {
     /// Samples averaged to seed gravity at startup. Seeding from one sample
     /// bakes in whatever motion happened to be underway at that instant.
     public var seedSamples: Int = 32
+    /// How long before the peak is examined for surrounding motion.
+    public var calmWindow: Double = 0.25
+    /// Samples needed in the pre-window before the calm test is trusted. Too
+    /// few and the verdict is meaningless, so the tap is allowed.
+    public var calmMinSamples: Int = 24
+    /// Sample-to-sample change above which the machine counts as moving.
+    /// A still machine measures about 0.004 g between consecutive samples at
+    /// 800 Hz; being dragged measures an order of magnitude more.
+    public var motionGate: Double = 0.010
     /// Window around the peak used to compute the correlation features.
     public var preWindow: Double = 0.010
     public var postWindow: Double = 0.040
@@ -78,6 +91,10 @@ public final class TapDetector {
     private struct Entry {
         let v: (x: Double, y: Double, z: Double)
         let mag: Double
+        /// Change since the previous sample. Independent of the gravity
+        /// estimate, so it stays meaningful across a resync and while the
+        /// baseline is still catching up to a new orientation.
+        let delta: Double
         let t: CFAbsoluteTime
     }
 
@@ -86,6 +103,7 @@ public final class TapDetector {
     private var seedCount = 0
     /// When the residual first went above the transient gate, if it still is.
     private var elevatedSince: CFAbsoluteTime?
+    private var previousSample: (x: Double, y: Double, z: Double)?
     /// Incremented on each forced resync, for diagnostics.
     public private(set) var resyncCount = 0
     private var history: [Entry] = []
@@ -139,7 +157,14 @@ public final class TapDetector {
             }
         }
 
-        history.append(Entry(v: linear, mag: mag, t: s.time))
+        var delta = 0.0
+        if let previous = previousSample {
+            let dx = s.x - previous.x, dy = s.y - previous.y, dz = s.z - previous.z
+            delta = (dx * dx + dy * dy + dz * dz).squareRoot()
+        }
+        previousSample = (s.x, s.y, s.z)
+
+        history.append(Entry(v: linear, mag: mag, delta: delta, t: s.time))
         trimHistory()
 
         let index = dropped + history.count - 1
@@ -166,10 +191,46 @@ public final class TapDetector {
 
         candidate = nil
 
+        // Whether the machine was still beforehand is measured here but judged
+        // by GestureRecognizer, which knows whether this tap starts a gesture
+        // or completes one. The second tap of a double is preceded by the
+        // first, and must not be penalised for it.
+        let background = backgroundActivity(peak: peak)
+
         guard peak.t - lastTapTime >= config.refractory else { return nil }
         lastTapTime = peak.t
 
-        return classify(peak: peak)
+        return classify(peak: peak, backgroundActivity: background)
+    }
+
+    /// Fraction of the window before the peak that was already in motion.
+    ///
+    /// Measured as the proportion of samples whose sample-to-sample change
+    /// exceeds `motionGate`, rather than the loudest residual: dragging
+    /// produces continuous low-level motion that a single-maximum test misses,
+    /// because each friction bump is still small next to the peak it precedes.
+    /// Using the delta rather than the residual also keeps the measure honest
+    /// while the gravity baseline is chasing a changing orientation.
+    ///
+    /// The window starts after the previous accepted tap's ringdown, so the
+    /// second half of a deliberate double tap is not judged against the first.
+    ///
+    /// Too little history to judge reports 1 — treated as moving. Assuming
+    /// stillness on no evidence is what let dragging through: a resync or a
+    /// closely preceding tap truncates the window, and every leaked bump came
+    /// from exactly that. The cost is that a tap in the first fraction of a
+    /// second after launch is ignored.
+    private func backgroundActivity(peak: Entry) -> Double {
+        let guardBand = 0.02   // exclude the tap's own leading edge
+        let start = max(peak.t - config.calmWindow, lastTapTime + config.refractory)
+        let end = peak.t - guardBand
+        guard end > start else { return 1 }
+
+        let before = history.filter { $0.t >= start && $0.t <= end }
+        guard before.count >= config.calmMinSamples else { return 1 }
+
+        let moving = before.filter { $0.delta > config.motionGate }.count
+        return Double(moving) / Double(before.count)
     }
 
     /// Snaps the baseline to the machine's current orientation and drops the
@@ -178,12 +239,13 @@ public final class TapDetector {
         gravity = (sample.x, sample.y, sample.z)
         elevatedSince = nil
         candidate = nil
-        history.removeAll()
-        dropped = 0
+        // History is deliberately kept. Its residuals are stale, but its
+        // sample-to-sample deltas are not, and they are exactly the evidence
+        // that the machine is in motion — which the next tap needs to see.
         resyncCount += 1
     }
 
-    private func classify(peak: Entry) -> Tap {
+    private func classify(peak: Entry, backgroundActivity: Double) -> Tap {
         let lo = peak.t - config.preWindow
         let hi = peak.t + config.postWindow
         let window = history.filter { $0.t >= lo && $0.t <= hi }
@@ -206,6 +268,7 @@ public final class TapDetector {
                    side: side,
                    corrXZ: corrXZ,
                    corrXY: corrXY,
+                   backgroundActivity: backgroundActivity,
                    sampleCount: window.count,
                    sampleRate: currentRate)
     }
@@ -219,7 +282,8 @@ public final class TapDetector {
     /// Keeps enough history for a full window plus margin, at any sample rate.
     private func trimHistory() {
         guard let newest = history.last else { return }
-        let span = (config.preWindow + config.postWindow) * 2 + 0.05
+        let span = max((config.preWindow + config.postWindow) * 2 + 0.05,
+                       config.calmWindow + config.postWindow + 0.05)
         let cutoff = newest.t - span
         var drop = 0
         while drop < history.count, history[drop].t < cutoff { drop += 1 }

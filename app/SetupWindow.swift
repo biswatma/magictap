@@ -256,6 +256,7 @@ struct SettingsTab: View {
     @State private var doubleWindow = Settings.shared.doubleWindow
     @State private var invert = Settings.shared.invertSides
     @State private var inputGuard = Settings.shared.inputGuard
+    @State private var motionGuard = Settings.shared.motionGuard
     @State private var feedback = Settings.shared.playFeedback
     @State private var launchAtLogin = LoginItem.enabled
     @State private var loginError: String?
@@ -293,6 +294,15 @@ struct SettingsTab: View {
                     }
                 }
                 Toggle("Swap left and right", isOn: committing($invert))
+
+                Toggle("Ignore taps while the Mac is moving", isOn: committing($motionGuard))
+                Text("""
+                    A deliberate tap is isolated: the case is still, then \
+                    struck. Dragging the Mac across a bed or desk produces \
+                    friction bumps that each look like a tap on their own.
+                    """)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Toggle("Ignore taps while typing", isOn: committing($inputGuard))
                 Text("""
@@ -386,6 +396,7 @@ struct SettingsTab: View {
         s.doubleWindow = doubleWindow
         s.invertSides = invert
         s.inputGuard = inputGuard
+        s.motionGuard = motionGuard
         s.playFeedback = feedback
         engine.applySettings()
     }

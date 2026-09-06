@@ -27,6 +27,7 @@ final class Settings {
         static let playFeedback = "playFeedback"
         static let onboarded = "onboardingComplete"
         static let inputGuard = "inputGuard"
+        static let motionGuard = "motionGuard"
     }
 
     private init() {
@@ -41,6 +42,7 @@ final class Settings {
             Key.playFeedback: true,
             Key.onboarded: false,
             Key.inputGuard: true,
+            Key.motionGuard: true,
         ])
     }
 
@@ -105,6 +107,14 @@ final class Settings {
     var inputGuard: Bool {
         get { defaults.bool(forKey: Key.inputGuard) }
         set { defaults.set(newValue, forKey: Key.inputGuard) }
+    }
+
+    /// Ignore taps that arrive while the Mac is already in motion. On by
+    /// default: dragging the machine across a bed produces friction bumps that
+    /// individually look exactly like taps.
+    var motionGuard: Bool {
+        get { defaults.bool(forKey: Key.motionGuard) }
+        set { defaults.set(newValue, forKey: Key.motionGuard) }
     }
 
     var onboardingComplete: Bool {

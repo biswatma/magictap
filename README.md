@@ -300,6 +300,47 @@ Verified against four scenarios:
 So MagicTap works on a lap: once the posture settles the baseline follows it,
 and taps register against the new orientation.
 
+### A drag is not a tap
+
+Dragging the Mac across a bed fires double taps. Unlike a tilt this is not a
+sustained offset — friction bumps genuinely rise and settle, so the transient
+test above passes them. What separates them from a real tap is *isolation*: a
+deliberate tap happens on a still machine, while a drag bump is one of many.
+
+Each tap therefore carries `backgroundActivity`: the fraction of the 0.25 s
+before its peak in which the machine was already moving. Measured:
+
+| | activity |
+|---|---|
+| deliberate taps (desk) | median 0.000, max 0.068 |
+| deliberate double taps | 0.000 throughout |
+| bumps while dragging | median 0.995 |
+
+The threshold is 0.10. Three details make it work:
+
+- **Motion is measured as sample-to-sample delta, not residual.** The residual
+  depends on the gravity estimate, which is unreliable during exactly the
+  motion being detected. A still machine changes ~0.004 g between samples at
+  800 Hz; a dragged one, an order of magnitude more.
+- **The rule applies only to a tap that *opens* a gesture.** The second tap of
+  a double is preceded by the first, and must not be penalised for it. That is
+  why the decision lives in `GestureRecognizer` and not in `TapDetector`.
+- **Too little history to judge counts as moving.** Assuming stillness on no
+  evidence is what let dragging through in the first place: a gravity resync or
+  a closely preceding tap truncates the window, and every leaked bump came from
+  exactly that.
+
+Scenario suite, all replayable from the repo:
+
+| scenario | expected | result |
+|---|---|---|
+| labelled recordings | 40 taps, correct sides | 40/40 |
+| 5 deliberate double taps | 5 gestures | 5 |
+| 12 s dragging | 0 gestures | 0 (28 taps ignored) |
+| 6 s tilt held | 0 gestures | 0 |
+| 12 s moving lap | 0 gestures | 0 |
+| tapping while tilted | 6 taps | 6, correct side |
+
 ### Why refractory is 0.12 s
 
 Two taps can be no closer together than `TapConfig.refractory`, so double-tap
