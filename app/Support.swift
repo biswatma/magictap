@@ -28,7 +28,17 @@ final class Settings {
         static let onboarded = "onboardingComplete"
         static let inputGuard = "inputGuard"
         static let motionGuard = "motionGuard"
+        static let split = "corrSplit"
+        static let calibratedAt = "calibratedAt"
+        static let calibratedAccuracy = "calibratedAccuracy"
+        static let calibratedLeftCount = "calibratedLeftCount"
+        static let calibratedRightCount = "calibratedRightCount"
+        static let calibratedVerdict = "calibratedVerdict"
     }
+
+    /// The boundary MagicTap ships with, measured on a MacBookPro18,4. Any
+    /// other model should calibrate; this is only a starting point.
+    static let defaultSplit = -0.287
 
     private init() {
         defaults.register(defaults: [
@@ -43,6 +53,7 @@ final class Settings {
             Key.onboarded: false,
             Key.inputGuard: true,
             Key.motionGuard: true,
+            Key.split: Settings.defaultSplit,
         ])
     }
 
@@ -115,6 +126,62 @@ final class Settings {
     var motionGuard: Bool {
         get { defaults.bool(forKey: Key.motionGuard) }
         set { defaults.set(newValue, forKey: Key.motionGuard) }
+    }
+
+    /// corr_xz boundary separating a left tap from a right one. Chassis
+    /// specific — see Calibration.
+    var split: Double {
+        get { defaults.double(forKey: Key.split) }
+        set { defaults.set(newValue, forKey: Key.split) }
+    }
+
+    /// Nil until the user has run calibration on this machine.
+    var calibratedAt: Date? {
+        get { defaults.object(forKey: Key.calibratedAt) as? Date }
+        set { defaults.set(newValue, forKey: Key.calibratedAt) }
+    }
+
+    var calibratedAccuracy: Double {
+        get { defaults.double(forKey: Key.calibratedAccuracy) }
+        set { defaults.set(newValue, forKey: Key.calibratedAccuracy) }
+    }
+
+    var calibratedLeftCount: Int {
+        get { defaults.integer(forKey: Key.calibratedLeftCount) }
+        set { defaults.set(newValue, forKey: Key.calibratedLeftCount) }
+    }
+
+    var calibratedRightCount: Int {
+        get { defaults.integer(forKey: Key.calibratedRightCount) }
+        set { defaults.set(newValue, forKey: Key.calibratedRightCount) }
+    }
+
+    var calibratedVerdict: String {
+        get { defaults.string(forKey: Key.calibratedVerdict) ?? "" }
+        set { defaults.set(newValue, forKey: Key.calibratedVerdict) }
+    }
+
+    /// Stores a calibration result as the machine's active configuration.
+    func applyCalibration(_ result: CalibrationResult, updateThreshold: Bool) {
+        split = result.split
+        invertSides = result.invert
+        if updateThreshold { threshold = result.suggestedThreshold }
+        calibratedAt = Date()
+        calibratedAccuracy = result.accuracy
+        calibratedLeftCount = result.leftCount
+        calibratedRightCount = result.rightCount
+        calibratedVerdict = result.verdict.rawValue
+    }
+
+    /// Returns to the shipped boundary, discarding any calibration.
+    func resetCalibration() {
+        split = Settings.defaultSplit
+        invertSides = false
+        calibratedAt = nil
+        calibratedAccuracy = 0
+        calibratedLeftCount = 0
+        calibratedRightCount = 0
+        calibratedVerdict = ""
     }
 
     var onboardingComplete: Bool {

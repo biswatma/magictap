@@ -6,6 +6,7 @@
 //   magictap tap               detect taps and report side + onset signature
 //   magictap replay FILE.csv   re-run the detector over a recorded session
 //   magictap run               watch for gestures and run the bound commands
+//   magictap calibrate L R     derive a left/right boundary from two recordings
 
 import Foundation
 import CoreGraphics
@@ -31,6 +32,7 @@ func usage() -> Never {
                    [--double-window=SEC] [--threshold=G] [--quiet]
                    [--input-window=SEC] [--cooldown=SEC] [--no-guard]
       magictap run --check
+      magictap calibrate LEFT.csv RIGHT.csv [--threshold=G]
       magictap tap [--threshold=G] [--split=CORR] [--invert]
                    [--refractory=SEC] [--hz=RATE] [--n=N] [--verbose]
 
@@ -63,6 +65,13 @@ func usage() -> Never {
                           0.70), so an action cannot retrigger itself
       --no-guard          accept every tap, ignoring both guards above
 
+    CALIBRATE
+      Feeds two labelled recordings through the detector and reports the
+      corr_xz boundary that best separates them, the accuracy it achieves and
+      the detection threshold implied by how hard the taps were. This is the
+      same computation the app's guided calibration performs, so a result here
+      predicts what the app would derive from the same taps.
+
     Commands run under /bin/sh with MAGICTAP_GESTURE (and MAGICTAP_SIDE for
     single taps) set in the environment. Binding no single-tap command keeps
     lone taps silent and avoids their wait.
@@ -83,6 +92,8 @@ var verbose = false
 var config = TapConfig()
 config.refractory = 0.12  // measured floor before ringdown re-triggers
 var recordPath: String?
+var calibrateLeftPath: String?
+var calibrateRightPath: String?
 var expected: String?
 var quiet = false
 var checkOnly = false
@@ -96,6 +107,15 @@ if command == "record" || command == "replay" {
     guard let p = args.first, !p.hasPrefix("--") else { fail("\(command) needs a file path") }
     recordPath = p
     args.removeFirst()
+}
+
+if command == "calibrate" {
+    guard args.count >= 2, !args[0].hasPrefix("--"), !args[1].hasPrefix("--") else {
+        fail("calibrate needs two paths: a left-taps recording and a right-taps recording")
+    }
+    calibrateLeftPath = args[0]
+    calibrateRightPath = args[1]
+    args.removeFirst(2)
 }
 
 for arg in args {
@@ -150,6 +170,70 @@ for arg in args {
         default:
             fail("unknown option: \(arg)")
         }
+    }
+}
+
+// MARK: - Offline commands (no sensor required)
+
+/// Runs the detector over a recording and returns every tap it found.
+func detectTaps(inFileAt path: String, config: TapConfig) -> [Tap] {
+    guard let text = try? String(contentsOfFile: path, encoding: .utf8) else {
+        fail("cannot read \(path)")
+    }
+    let detector = TapDetector(config: config)
+    var taps: [Tap] = []
+    for rawLine in text.split(separator: "\n") {
+        let line = rawLine.hasSuffix("\r") ? rawLine.dropLast() : rawLine
+        let cols = line.split(separator: ",")
+        guard cols.count >= 4, let t = Double(cols[0]), let x = Double(cols[1]),
+              let y = Double(cols[2]), let z = Double(cols[3]) else { continue }
+        if let tap = detector.process(MotionSample(x: x, y: y, z: z, time: t)) {
+            taps.append(tap)
+        }
+    }
+    return taps
+}
+
+if command == "calibrate" {
+    guard let leftPath = calibrateLeftPath, let rightPath = calibrateRightPath else {
+        fail("calibrate needs two file paths")
+    }
+
+    let leftTaps = detectTaps(inFileAt: leftPath, config: config)
+    let rightTaps = detectTaps(inFileAt: rightPath, config: config)
+
+    print("left  \(leftPath): \(leftTaps.count) taps")
+    print("right \(rightPath): \(rightTaps.count) taps")
+
+    do {
+        let result = try Calibration.compute(
+            leftCorr: leftTaps.map(\.corrXZ),
+            rightCorr: rightTaps.map(\.corrXZ),
+            peaks: (leftTaps + rightTaps).map(\.peak))
+
+        print("""
+
+        boundary   corr_xz \(String(format: "%+.3f", result.split))\
+        \(result.invert ? "  (inverted: above the boundary is a right tap)" : "")
+        accuracy   \(String(format: "%.1f%%", result.accuracy * 100)) \
+        on \(result.leftCount) left + \(result.rightCount) right taps
+        d-prime    \(String(format: "%.2f", result.dPrime))
+        margin     \(String(format: "%.3f", result.margin)) from the nearest tap
+        clusters   left \(String(format: "%+.3f", result.leftMean)), \
+        right \(String(format: "%+.3f", result.rightMean))
+        threshold  \(String(format: "%.3f g", result.suggestedThreshold)) suggested
+
+        \(result.verdict.summary) — \(result.verdict.advice)
+        """)
+
+        print("""
+
+        To use it:  magictap run --split=\(String(format: "%.3f", result.split))\
+        \(result.invert ? " --invert" : "")
+        """)
+        exit(0)
+    } catch {
+        fail("\ncalibration failed: \(error)")
     }
 }
 
@@ -414,7 +498,7 @@ case "run":
     }
 
 default:
-    fail("unknown command: \(command) (try: info, stream, record, tap, replay, run)")
+    fail("unknown command: \(command) (try: info, stream, record, tap, replay, run, calibrate)")
 }
 
 CFRunLoopRun()

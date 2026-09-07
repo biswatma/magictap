@@ -39,6 +39,11 @@ final class TapEngine: ObservableObject {
     /// missing. Reopening it on every tap would be its own kind of spam.
     private var permissionNoticeShown = false
 
+    /// While set, taps are handed here instead of forming gestures, and no
+    /// action fires. Calibration needs the raw taps, and firing a screenshot
+    /// on every calibration tap would be its own small disaster.
+    var calibrationSink: ((Tap) -> Void)?
+
     var onPermissionNeeded: (() -> Void)?
 
     private init() {}
@@ -85,6 +90,7 @@ final class TapEngine: ObservableObject {
         config.threshold = s.threshold
         config.refractory = 0.12  // measured floor before ringdown re-triggers
         config.invert = s.invertSides
+        config.split = s.split    // chassis specific; see Calibration
         detector.config = config
 
         gate.enabled = s.inputGuard
@@ -106,6 +112,13 @@ final class TapEngine: ObservableObject {
     // MARK: - Sample handling
 
     private func handle(_ sample: MotionSample) {
+        // Calibration takes priority: no gesture grouping, no actions, and the
+        // enabled switch does not gate it, so a paused app can still calibrate.
+        if let sink = calibrationSink {
+            if let tap = detector.process(sample) { sink(tap) }
+            return
+        }
+
         if let gesture = gestures.expire(now: sample.time) {
             fire(gesture)
         }

@@ -88,6 +88,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         setup.target = self
         menu.addItem(setup)
 
+        let calibrate = NSMenuItem(title: "Calibrate Left / Right…",
+                                   action: #selector(openCalibration),
+                                   keyEquivalent: "")
+        calibrate.target = self
+        menu.addItem(calibrate)
+
         let log = NSMenuItem(title: "Open Log…", action: #selector(openLog), keyEquivalent: "")
         log.target = self
         menu.addItem(log)
@@ -123,6 +129,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSetup() {
+        showSetup()
+    }
+
+    @objc private func openCalibration() {
+        SetupNavigation.shared.tab = .calibrate
         showSetup()
     }
 

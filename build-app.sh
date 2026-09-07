@@ -38,8 +38,9 @@ swiftc -O -target arm64-apple-macos14.0 \
     -framework ServiceManagement -framework CoreGraphics -framework Combine \
     -framework ScreenCaptureKit -framework CoreWLAN -framework IOBluetooth \
     -o "$CONTENTS/MacOS/$APP_NAME" \
-    src/HIDMotion.swift src/TapDetector.swift src/Gesture.swift src/InputActivity.swift \
+    src/HIDMotion.swift src/TapDetector.swift src/Gesture.swift src/InputActivity.swift src/Calibration.swift \
     app/Support.swift app/Actions.swift app/ActionExecutor.swift app/Screenshot.swift \
+    app/CalibrationSession.swift \
     app/TapEngine.swift app/SetupWindow.swift \
     app/MenuBar.swift app/main.swift
 

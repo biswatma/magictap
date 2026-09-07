@@ -5,16 +5,25 @@ import AppKit
 
 // MARK: - Root
 
+/// Which tab the setup window shows, shared so the menu bar can target one.
+final class SetupNavigation: ObservableObject {
+    static let shared = SetupNavigation()
+    @Published var tab: SetupView.Tab = .setup
+    private init() {}
+}
+
 struct SetupView: View {
     @ObservedObject var engine = TapEngine.shared
-    @State private var tab = Tab.setup
+    @ObservedObject var nav = SetupNavigation.shared
+    @StateObject private var calibration = CalibrationSession()
 
-    enum Tab { case setup, settings }
+    enum Tab { case setup, calibrate, settings }
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $tab) {
+            Picker("", selection: $nav.tab) {
                 Text("Setup").tag(Tab.setup)
+                Text("Calibrate").tag(Tab.calibrate)
                 Text("Settings").tag(Tab.settings)
             }
             .pickerStyle(.segmented)
@@ -25,16 +34,21 @@ struct SetupView: View {
 
             ScrollView {
                 Group {
-                    if tab == .setup {
-                        SetupTab(engine: engine)
-                    } else {
-                        SettingsTab(engine: engine)
+                    switch nav.tab {
+                    case .setup:     SetupTab(engine: engine)
+                    case .calibrate: CalibrateTab(session: calibration)
+                    case .settings:  SettingsTab(engine: engine)
                     }
                 }
                 .padding(20)
             }
         }
-        .frame(width: 460, height: 560)
+        .frame(width: 480, height: 600)
+        // Leaving the tab mid-run would otherwise keep the sink installed and
+        // silently swallow every tap.
+        .onChange(of: nav.tab) { _, newTab in
+            if newTab != .calibrate { calibration.cancel() }
+        }
     }
 }
 
@@ -238,6 +252,226 @@ struct SetupTab: View {
     private var screenDetail: String {
         if !needsScreen { return "not needed for the current actions" }
         return screenGranted ? "granted" : "not granted"
+    }
+}
+
+
+// MARK: - Calibrate
+
+struct CalibrateTab: View {
+    @ObservedObject var session: CalibrationSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Calibrate left and right").font(.title3).bold()
+                Text("""
+                    MagicTap ships with a boundary measured on one machine, a \
+                    16-inch MacBook Pro. A different size, mass and stiffness \
+                    pivots differently when struck, so its left and right taps \
+                    land somewhere else entirely. Tap each side a few times and \
+                    MagicTap will work out the boundary for your Mac.
+                    """)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            switch session.phase {
+            case .idle:
+                idle
+            case .collecting:
+                collecting
+            case .review:
+                review
+            case .applied:
+                applied
+            }
+        }
+    }
+
+    // MARK: Idle
+
+    private var idle: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            currentStatus
+
+            Button("Start calibration") { session.start() }
+                .buttonStyle(.borderedProminent)
+
+            Text("""
+                Rest the Mac on a desk, take your hands off the keyboard, and \
+                tap the case itself rather than the trackpad. \
+                \(session.target) taps a side.
+                """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if Settings.shared.calibratedAt != nil {
+                Button("Reset to the shipped default") { session.resetToDefault() }
+                    .buttonStyle(.link)
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var currentStatus: some View {
+        let s = Settings.shared
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: s.calibratedAt == nil
+                      ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                    .foregroundStyle(s.calibratedAt == nil ? .orange : .green)
+                Text(s.calibratedAt == nil
+                     ? "Not calibrated for this Mac"
+                     : "Calibrated for this Mac")
+                    .font(.headline)
+            }
+            if let at = s.calibratedAt {
+                Text(String(format: "%.0f%% accurate on %d left and %d right taps · %@",
+                            s.calibratedAccuracy * 100, s.calibratedLeftCount,
+                            s.calibratedRightCount,
+                            at.formatted(date: .abbreviated, time: .shortened)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Using the shipped boundary. Accurate on the machine it was "
+                     + "measured on; unverified on yours.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(String(format: "boundary corr_xz %+.3f%@", s.split,
+                        s.invertSides ? " (inverted)" : ""))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: Collecting
+
+    private var collecting: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(session.instruction)
+                .font(.title2).bold()
+                .foregroundStyle(.tint)
+
+            HStack(spacing: 6) {
+                ForEach(0..<session.target, id: \.self) { i in
+                    Circle()
+                        .fill(i < session.collected.count ? Color.accentColor : Color.gray.opacity(0.25))
+                        .frame(width: 12, height: 12)
+                }
+                Text("\(session.collected.count) of \(session.target)")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .padding(.leading, 6)
+            }
+
+            if let rejected = session.rejected {
+                Label(rejected, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            if !session.collected.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(session.collected.suffix(5).enumerated()), id: \.offset) { _, tap in
+                        Text(String(format: "%.2f g   corr %+.2f", tap.peak, tap.corrXZ))
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            HStack {
+                Button(session.canAdvance ? "Next" : "Next (need \(session.minimum))") {
+                    session.advance()
+                }
+                .disabled(!session.canAdvance)
+                Button("Cancel") { session.cancel() }
+            }
+        }
+    }
+
+    // MARK: Review
+
+    @ViewBuilder
+    private var review: some View {
+        if let problem = session.problem {
+            VStack(alignment: .leading, spacing: 14) {
+                Label("Calibration could not be computed", systemImage: "xmark.circle.fill")
+                    .foregroundStyle(.red).font(.headline)
+                Text(problem).font(.callout).foregroundStyle(.secondary)
+                HStack {
+                    Button("Try again") { session.start() }.buttonStyle(.borderedProminent)
+                    Button("Cancel") { session.cancel() }
+                }
+            }
+        } else if let r = session.result {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: r.verdict == .weak
+                          ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundStyle(r.verdict == .weak ? .orange : .green)
+                    Text(r.verdict.summary).font(.headline)
+                }
+
+                Text(r.verdict.advice).font(.callout).foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    metric("Accuracy", String(format: "%.0f%%", r.accuracy * 100),
+                           "of your \(r.leftCount + r.rightCount) calibration taps")
+                    metric("Separation", String(format: "d′ %.2f", r.dPrime),
+                           "above 2.0 is comfortable")
+                    metric("Boundary", String(format: "%+.3f", r.split),
+                           String(format: "%.3f clear of the nearest tap", r.margin))
+                    metric("Clusters", String(format: "%+.2f / %+.2f", r.leftMean, r.rightMean),
+                           "left / right averages")
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+
+                Toggle(isOn: Binding(get: { session.updateThreshold },
+                                     set: { session.updateThreshold = $0 })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(format: "Also set tap strength to %.3f g",
+                                    r.suggestedThreshold))
+                        Text("Scaled to how hard you tapped, with headroom for softer taps.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+
+                HStack {
+                    Button("Apply") { session.apply() }.buttonStyle(.borderedProminent)
+                    Button("Redo") { session.start() }
+                    Button("Cancel") { session.cancel() }
+                }
+            }
+        }
+    }
+
+    private func metric(_ label: String, _ value: String, _ note: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+                .frame(width: 78, alignment: .leading)
+            Text(value).font(.system(.callout, design: .monospaced)).bold()
+            Text(note).font(.caption2).foregroundStyle(.tertiary)
+        }
+    }
+
+    // MARK: Applied
+
+    private var applied: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Calibration applied", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green).font(.headline)
+            Text("Tap either side of the trackpad to try it. The live monitor on "
+                 + "the Setup tab shows which side MagicTap thinks you hit.")
+                .font(.callout).foregroundStyle(.secondary)
+            Button("Calibrate again") { session.start() }
+        }
     }
 }
 

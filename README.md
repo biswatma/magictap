@@ -209,6 +209,7 @@ bin/magictap stream                  # live samples with a sliding-window rate
 bin/magictap record taps.csv         # capture to CSV for offline tuning
 bin/magictap tap                     # detect taps, report side + corr_xz
 bin/magictap replay left.csv --expect=left   # score the detector on a recording
+bin/magictap calibrate left.csv right.csv   # derive a boundary for this machine
 bin/magictap run                     # watch for gestures, run bound commands
 bin/magictap run --check             # verify sensor + screen recording permission
 bin/magictap run --no-guard          # accept taps during typing (calibration only)
@@ -393,51 +394,53 @@ sides are not mirror images — one side produces lateral components at 25–40%
 peak magnitude, the other only 4–5%. The sides differ in lateral *magnitude*,
 not sign, so a sign test at zero was reading noise.
 
-### Recalibrating on other hardware
+### Calibrating for your own MacBook
 
-The boundary above is specific to this chassis. On a different model:
+The boundary above is specific to one chassis. A different size, mass and
+stiffness pivots differently when struck, so its two clusters sit somewhere
+else — possibly with the polarity reversed. Measured against a synthetic
+chassis whose clusters were shifted and flipped, the shipped default scored
+**0 out of 24**; after calibration, **24 out of 24**.
 
-```sh
-./bin/magictap record left.csv      # tap ONLY left of the trackpad, ~20 times
-./bin/magictap record right.csv     # tap ONLY right, ~20 times
-python3 tools/analyze.py left.csv right.csv
-```
+**In the app:** menu bar → *Calibrate Left / Right…*, or the Calibrate tab in
+the setup window. It asks for ten taps on the left, then ten on the right, and
+derives:
 
-Vary tap force deliberately within each session, and keep the machine on the
-same surface for both — a desk and a lap resonate differently, and that
-difference would show up as a fake discriminator.
+- the `corr_xz` boundary that classifies the most taps correctly
+- the polarity (which side sits above the boundary), set automatically
+- a detection threshold scaled to how hard you actually tap
+- the accuracy, d′ and margin it achieved, so you are told whether to trust it
 
-`analyze.py` segments the taps, extracts force-normalised candidate features
-(peak direction, onset direction at several fractions, per-axis energy split,
-signed impulse, cross-axis correlation), and ranks them by separation, with
-leave-one-out accuracy for the best linear combinations. Feed the winning
-boundary back in with `--split=`, adding `--invert` if the sides come out
-swapped, then check it with:
+Among equally accurate boundaries it prefers the one furthest from any sample,
+so the split sits midway between the clusters rather than balanced on the edge
+of one.
 
-```sh
-./bin/magictap replay left.csv --expect=left
-./bin/magictap replay right.csv --expect=right
-```
+Calibration taps are held to the same standard as real ones: a tap that lands
+while the Mac is moving, or within 0.35 s of a keystroke, is rejected with the
+reason shown rather than silently padding the sample set with noise.
 
-## Website
+If your Mac genuinely cannot separate the sides, it says so — accuracy under
+88% is reported as **Weak separation**, with the honest advice that double tap
+still works perfectly because it ignores which side you hit. It does not
+pretend a bad calibration is a good one.
 
-`site/index.html` is the landing page — a single self-contained file, no build
-step, no dependencies. `vercel.json` points Vercel at it.
-
-To deploy: import the repository at vercel.com. The config sets the output
-directory to `site`, so it should need no further setup. If Vercel asks for a
-framework, choose **Other**. Setting the project's Root Directory to `site` in
-the dashboard works equally well as an alternative to the config file.
-
-To preview locally:
+**From the command line**, over two recordings:
 
 ```sh
-open site/index.html          # it is a plain file, no server needed
+./bin/magictap record left.csv       # tap ONLY left, ~20 times
+./bin/magictap record right.csv      # tap ONLY right, ~20 times
+./bin/magictap calibrate left.csv right.csv
 ```
 
-The action list on the page is generated from the same names as
-`app/Actions.swift`; if you add an action, update the `ACTIONS` object at the
-bottom of the page to match.
+This runs the same computation as the app, so a result here predicts what the
+app would derive from the same taps. Run against the recordings in this
+repository it returns `-0.291` at 100% accuracy — independently rediscovering
+the hardcoded `-0.287` to within 0.004, which is how the maths is verified
+without needing to tap a machine.
+
+`tools/analyze.py` remains the tool for finding a *different* feature, should
+`corr_xz` ever fail on some chassis; `calibrate` only re-fits the boundary of
+the feature already chosen.
 
 ## Layout
 
@@ -445,6 +448,7 @@ bottom of the page to match.
 src/HIDMotion.swift    sensor access — private symbol bindings, MotionSource, RateMeter
 src/TapDetector.swift  gravity tracking, peak detection, side classification
 src/Gesture.swift      single/double tap grouping, shell action runner
+src/Calibration.swift  derives a left/right boundary from labelled taps
 src/InputActivity.swift  typing/click guard and post-action cooldown
 src/main.swift         CLI
 app/Support.swift      settings, permission checks, rolling log, login item
@@ -452,7 +456,8 @@ app/Actions.swift      the 51-action catalogue with groups and requirements
 app/ActionExecutor.swift  key synthesis, media keys, window placement, system toggles
 app/Screenshot.swift   in-process capture via ScreenCaptureKit
 app/TapEngine.swift    sensor + detector + gestures, as observable app state
-app/SetupWindow.swift  SwiftUI onboarding and settings
+app/CalibrationSession.swift  guided calibration flow
+app/SetupWindow.swift  SwiftUI onboarding, calibration and settings
 app/MenuBar.swift      status item and menu
 app/main.swift         app entry point
 app/tools/make-icon.swift  renders the .icns from an SF Symbol
@@ -468,6 +473,8 @@ vercel.json            points Vercel at site/
 Working end to end: sensor access at 800 Hz, tap detection, left/right
 classification (40/40 on labelled replay), gestures bound to any of 51
 built-in actions, and a menu bar app packaged as a DMG.
+
+Left/right is calibratable per machine, in the app or from the CLI.
 
 Known limits: the private HID event-system symbols rule out the Mac App Store
 and could break in a future macOS; the ad-hoc signature means a rebuild can
