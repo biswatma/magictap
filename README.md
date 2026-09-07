@@ -68,9 +68,19 @@ ever run there.
 
 **Requires macOS 14 or later** (ScreenCaptureKit's `SCScreenshotManager`).
 
-**Install:** open the DMG, drag MagicTap to Applications, launch it. It is not
-notarised by Apple, so the first launch is blocked — right-click the app,
-choose Open, confirm. Once only.
+**Install:** open the DMG, drag MagicTap to Applications, and launch it from
+there.
+
+It is not notarised by Apple, so macOS blocks the first launch. Double-click
+MagicTap and let macOS refuse it — that attempt is what makes the override
+appear — then open System Settings → Privacy & Security, scroll down to
+Security, and click **Open Anyway**. Once only.
+
+macOS 14 also accepted a Control-click → Open, but macOS 15 removed that
+shortcut for apps it cannot verify, so the Privacy & Security route is the one
+that works on every supported version. From a terminal,
+`xattr -dr com.apple.quarantine /Applications/MagicTap.app` clears the
+quarantine flag instead.
 
 Install to `/Applications` *before* granting Screen Recording. The permission
 is tied to the app's identity and location, so granting it first and moving the

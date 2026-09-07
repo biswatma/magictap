@@ -148,6 +148,10 @@ nav a.nl:hover{color:var(--fg)}
 .steps{counter-reset:s; margin-top:38px; display:grid; gap:14px}
 .step{display:grid; grid-template-columns:34px 1fr; gap:16px; align-items:start;
   background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px}
+/* A grid item defaults to min-width:auto, so a long unbreakable line inside
+   (the xattr command) would widen the whole card past the viewport instead of
+   letting the pre scroll on its own. */
+.step > div{min-width:0}
 .step::before{counter-increment:s; content:counter(s);
   width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
   background:var(--accent); color:#fff;
@@ -374,9 +378,15 @@ footer{border-top:1px solid var(--line); padding:44px 0; color:var(--faint); fon
       </div>
       <div class="step">
         <div>
-          <h3>Open it the first time with right-click → Open</h3>
-          <p>MagicTap is not notarised by Apple, so a plain double-click is refused. Right-click
-             the app, choose Open, confirm. Once is enough.</p>
+          <h3>Open it the first time</h3>
+          <p>MagicTap is not notarised by Apple, so macOS blocks it at first. Double-click
+             MagicTap and let macOS refuse it — that attempt is what makes the override appear.
+             Then open <strong>System Settings → Privacy &amp; Security</strong>, scroll down to
+             <strong>Security</strong>, and click <strong>Open Anyway</strong> next to MagicTap.
+             Once only.</p>
+          <p style="margin-top:10px">Prefer the terminal? This clears the quarantine flag, so
+             macOS never gates it at all:</p>
+          <pre><code>xattr -dr com.apple.quarantine /Applications/MagicTap.app</code></pre>
         </div>
       </div>
       <div class="step">
@@ -449,7 +459,13 @@ footer{border-top:1px solid var(--line); padding:44px 0; color:var(--faint); fon
 
       <details><summary>Why does macOS say the app is from an unidentified developer?</summary><div class="a">
         <p>Because it is not notarised by Apple. Notarisation needs a paid Apple Developer
-        account. Right-click the app and choose Open the first time and macOS will remember.</p>
+        account.</p>
+        <p>To open it anyway: double-click MagicTap, let macOS refuse it, then go to
+        <strong>System Settings → Privacy &amp; Security</strong>, scroll to
+        <strong>Security</strong> and click <strong>Open Anyway</strong>. The button only appears
+        after a blocked attempt. macOS remembers the decision, so it is a one-time step.</p>
+        <p>macOS 14 also accepted a Control-click → Open, but macOS 15 removed that shortcut for
+        apps it cannot verify. The route above works on every supported version.</p>
         <p>The same limitation means MagicTap cannot go on the Mac App Store: reading this
         sensor requires private system interfaces that App Store review does not allow.</p>
       </div></details>

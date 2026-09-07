@@ -94,9 +94,20 @@ MagicTap $VERSION
 
 Drag MagicTap to Applications, then launch it.
 
-MagicTap is unsigned by Apple, so the first launch is blocked by Gatekeeper.
-To open it: right-click MagicTap in Applications, choose Open, then confirm.
-Doing it once is enough.
+MagicTap is not notarized by Apple, so macOS blocks the first launch.
+To open it:
+
+  1. Double-click MagicTap. macOS will refuse to open it. This step is
+     required - the override in step 2 only appears after a blocked attempt.
+  2. Open System Settings > Privacy & Security, scroll down to Security,
+     and click "Open Anyway" next to MagicTap, then confirm.
+
+Doing it once is enough. macOS 14 also accepted a Control-click > Open, but
+macOS 15 removed that shortcut for apps it cannot verify.
+
+Prefer the terminal? This clears the quarantine flag instead:
+
+  xattr -dr com.apple.quarantine /Applications/MagicTap.app
 
 MagicTap runs in the menu bar (look for the tap icon near Wi-Fi and battery).
 The setup window opens on first launch and walks through permissions.
